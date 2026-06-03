@@ -31,26 +31,14 @@ pipeline {
         stage('Build') {
             steps {
                 echo 'Building Spring Boot application...'
-                script {
-                    if (isUnix()) {
-                        sh 'mvn clean compile'
-                    } else {
-                        bat 'mvn clean compile'
-                    }
-                }
+                sh 'mvn clean compile'
             }
         }
         
         stage('Test') {
             steps {
                 echo 'Running unit tests...'
-                script {
-                    if (isUnix()) {
-                        sh 'mvn test'
-                    } else {
-                        bat 'mvn test'
-                    }
-                }
+                sh 'mvn test'
             }
             post {
                 always {
@@ -62,28 +50,15 @@ pipeline {
         stage('Package') {
             steps {
                 echo 'Packaging application...'
-                script {
-                    if (isUnix()) {
-                        sh 'mvn package -DskipTests'
-                    } else {
-                        bat 'mvn package -DskipTests'
-                    }
-                }
+                sh 'mvn package -DskipTests'
             }
         }
         
         stage('Build Docker Image') {
             steps {
                 echo 'Building Docker image...'
-                script {
-                    if (isUnix()) {
-                        sh 'docker --version'
-                        sh 'docker build -t ak096511/cms-api:latest .'
-                    } else {
-                        bat 'docker --version'
-                        bat 'docker build -t ak096511/cms-api:latest .'
-                    }
-                }
+                sh 'docker --version'
+                sh 'docker build -t ${DOCKER_IMAGE} .'
             }
         }
         
@@ -91,17 +66,9 @@ pipeline {
             steps {
                 echo 'Pushing image to Docker Hub...'
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    script {
-                        if (isUnix()) {
-                            sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-                            sh 'docker push ak096511/cms-api:latest'
-                            sh 'docker logout'
-                        } else {
-                            bat 'echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin'
-                            bat 'docker push ak096511/cms-api:latest'
-                            bat 'docker logout'
-                        }
-                    }
+                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                    sh 'docker push ${DOCKER_IMAGE}'
+                    sh 'docker logout'
                 }
             }
         }
@@ -109,16 +76,10 @@ pipeline {
         stage('Deploy with Docker') {
             steps {
                 echo 'Deploying with Docker...'
-                script {
-                    if (isUnix()) {
-                        sh 'docker stop cms-api || true'
-                        sh 'docker rm cms-api || true'
-                        sh 'docker run -d -p 9090:8080 --name cms-api ak096511/cms-api:latest'
-                        sh 'docker ps'
-                    } else {
-                        bat 'powershell -Command "docker stop cms-api; docker rm cms-api; docker run -d -p 9090:8080 --name cms-api ak096511/cms-api:latest; docker ps"'
-                    }
-                }
+                sh 'docker stop cms-api || true'
+                sh 'docker rm cms-api || true'
+                sh 'docker run -d -p 9090:8080 --name cms-api ${DOCKER_IMAGE}'
+                sh 'docker ps'
             }
         }
     }
