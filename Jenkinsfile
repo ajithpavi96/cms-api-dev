@@ -1,5 +1,13 @@
 pipeline {
     agent any
+
+    parameters {
+        string(name: 'BRANCH_TO_BUILD', defaultValue: 'master', description: 'Git branch to build')
+    }
+    
+    environment {
+        DOCKER_IMAGE = 'ak096511/cms-api:latest'
+    }
     
     tools {
         maven 'Maven 3.9.16'
@@ -9,9 +17,9 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                echo 'Checking out source code...'
+                echo "Checking out source code from branch: ${params.BRANCH_TO_BUILD}..."
                 checkout([$class: 'GitSCM',
-                    branches: [[name: '*/master']],
+                    branches: [[name: "*/${params.BRANCH_TO_BUILD}"]],
                     userRemoteConfigs: [[
                         url: 'https://github.com/ajithpavi96/cms-api-dev.git',
                         credentialsId: 'b290128b-fdd1-40b4-8fcf-8c10e6cf7699'
@@ -23,14 +31,26 @@ pipeline {
         stage('Build') {
             steps {
                 echo 'Building Spring Boot application...'
-                sh 'mvn clean compile'
+                script {
+                    if (isUnix()) {
+                        sh 'mvn clean compile'
+                    } else {
+                        bat 'mvn clean compile'
+                    }
+                }
             }
         }
         
         stage('Test') {
             steps {
                 echo 'Running unit tests...'
-                sh 'mvn test'
+                script {
+                    if (isUnix()) {
+                        sh 'mvn test'
+                    } else {
+                        bat 'mvn test'
+                    }
+                }
             }
             post {
                 always {
@@ -42,14 +62,28 @@ pipeline {
         stage('Package') {
             steps {
                 echo 'Packaging application...'
-                sh 'mvn package -DskipTests'
+                script {
+                    if (isUnix()) {
+                        sh 'mvn package -DskipTests'
+                    } else {
+                        bat 'mvn package -DskipTests'
+                    }
+                }
             }
         }
         
         stage('Build Docker Image') {
             steps {
                 echo 'Building Docker image...'
-                sh 'docker build -t ak096511/cms-api:latest .'
+                script {
+                    if (isUnix()) {
+                        sh 'docker --version'
+                        sh 'docker build -t ak096511/cms-api:latest .'
+                    } else {
+                        bat 'docker --version'
+                        bat 'docker build -t ak096511/cms-api:latest .'
+                    }
+                }
             }
         }
         
@@ -57,9 +91,17 @@ pipeline {
             steps {
                 echo 'Pushing image to Docker Hub...'
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-                    sh 'docker push ak096511/cms-api:latest'
-                    sh 'docker logout'
+                    script {
+                        if (isUnix()) {
+                            sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                            sh 'docker push ak096511/cms-api:latest'
+                            sh 'docker logout'
+                        } else {
+                            bat 'echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin'
+                            bat 'docker push ak096511/cms-api:latest'
+                            bat 'docker logout'
+                        }
+                    }
                 }
             }
         }
@@ -67,10 +109,16 @@ pipeline {
         stage('Deploy with Docker') {
             steps {
                 echo 'Deploying with Docker...'
-                sh 'docker stop cms-api || true'
-                sh 'docker rm cms-api || true'
-                sh 'docker run -d -p 9090:8080 --name cms-api ak096511/cms-api:latest'
-                sh 'docker ps'
+                script {
+                    if (isUnix()) {
+                        sh 'docker stop cms-api || true'
+                        sh 'docker rm cms-api || true'
+                        sh 'docker run -d -p 9090:8080 --name cms-api ak096511/cms-api:latest'
+                        sh 'docker ps'
+                    } else {
+                        bat 'powershell -Command "docker stop cms-api; docker rm cms-api; docker run -d -p 9090:8080 --name cms-api ak096511/cms-api:latest; docker ps"'
+                    }
+                }
             }
         }
     }
