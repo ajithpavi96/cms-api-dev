@@ -1,5 +1,5 @@
 pipeline {
-    agent any
+    agent { label 'docker' }
 
     parameters {
         string(name: 'BRANCH_TO_BUILD', defaultValue: 'master', description: 'Git branch to build')
