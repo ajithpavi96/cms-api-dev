@@ -46,12 +46,31 @@ pipeline {
             }
         }
         
-        stage('Deploy to Kubernetes') {
+        stage('Build Docker Image') {
             steps {
-                echo 'Deploying to Kubernetes...'
-                sh 'kubectl apply -f k8s-deployment.yaml'
-                sh 'kubectl rollout status deployment/cms-api -n default'
-                sh 'kubectl get pods -n default -l app=cms-api'
+                echo 'Building Docker image...'
+                sh 'docker build -t ak096511/cms-api:latest .'
+            }
+        }
+        
+        stage('Push to Docker Hub') {
+            steps {
+                echo 'Pushing image to Docker Hub...'
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                    sh 'docker push ak096511/cms-api:latest'
+                    sh 'docker logout'
+                }
+            }
+        }
+        
+        stage('Deploy with Docker') {
+            steps {
+                echo 'Deploying with Docker...'
+                sh 'docker stop cms-api || true'
+                sh 'docker rm cms-api || true'
+                sh 'docker run -d -p 9090:8080 --name cms-api ak096511/cms-api:latest'
+                sh 'docker ps'
             }
         }
     }
