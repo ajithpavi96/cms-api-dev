@@ -11,7 +11,7 @@ pipeline {
             steps {
                 echo 'Checking out source code...'
                 checkout([$class: 'GitSCM',
-                    branches: [[name: '*/main']],
+                    branches: [[name: '*/master']],
                     userRemoteConfigs: [[
                         url: 'https://github.com/ajithpavi96/cms-api-dev.git',
                         credentialsId: 'b290128b-fdd1-40b4-8fcf-8c10e6cf7699'
